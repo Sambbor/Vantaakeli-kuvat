@@ -7,9 +7,9 @@ Kelisivu: https://sambbor.github.io/Vantaakeli/
 
 ## Miten kerätään
 - `kuvapankki.py` ajetaan kerran tunnissa (`.github/workflows/kuvapankki.yml`).
-- **Parit:** kamerat, jotka ovat enintään 300 m päässä tiesääasemasta. Kuva joka tunti; aseman mittaus samalta hetkeltä on kuvan merkintä.
+- **Parit ja lähikamerat:** kamerat enintään 300 m (pari) tai 1 km (lähi) päässä tiesääasemasta. Kuva joka tunti; aseman mittaus samalta hetkeltä on kuvan merkintä.
 - **Vertailu:** muut urakan kamerat 3 tunnin välein, kun talvikeli on mahdollinen (kylmin asema ≤ +3 °C tai jollain asemalla muu kuin kuiva keli).
-- Kuivan kelin kuvista tallennetaan joka 6., märän joka 2., talviset kuvat ja kelin vaihtumiset aina.
+- Kuivan kelin kuvista tallennetaan joka 4., märän joka 2., talviset kuvat ja kelin vaihtumiset aina.
 - Kuvat 400 px leveinä (`img/YYYY-MM/`), merkinnät `data/labels-YYYY-MM.csv`, yhteenveto `data/index.json`.
 
 ## Merkinnät (labels-YYYY-MM.csv)
