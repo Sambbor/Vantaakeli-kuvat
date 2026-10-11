@@ -20,7 +20,7 @@ jobs:
         run: |
           git config user.name "keli-bot"
           git config user.email "keli-bot@users.noreply.github.com"
-          git add data img 2>/dev/null || exit 0
+          for d in data img; do [ -e "$d" ] && git add "$d"; done   # img puuttuu, kun kuvia ei vielä ole
           git diff --cached --quiet && exit 0
           git commit -m "Kuvapankki $(date -u +%Y-%m-%dT%H:%MZ)"
           for i in 1 2 3 4; do git pull --rebase --autostash && git push && exit 0; sleep $((i*5)); done
