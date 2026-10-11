@@ -15,12 +15,13 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from PIL import Image
 
-VERSION = 'kp1'
+VERSION = 'kp2'
 DT = 'https://tie.digitraffic.fi'
 HDR = {'Digitraffic-User': 'Vantaa-urakka-kuvapankki', 'User-Agent': 'vantaa-kuvapankki/1', 'Accept-Encoding': 'gzip'}
 BBOX = (24.55, 60.15, 25.45, 60.50)
 CONTRACT = 301                    # Vantaan hoitourakka (Digitrafficin contractAreaCode)
-PAIR_MAX = 300                    # m: kamera ja asema samassa paikassa
+PAIR_MAX = 300                    # m: kamera ja asema samassa paikassa ("pari")
+NEAR_MAX = 1000                   # m: asema lähellä ("lähi"), merkintä hieman epävarmempi; tallennetaan kuten parit
 IMG_W = 400                       # tallennettavan kuvan leveys (px)
 JPEG_Q = 78
 STALE_MIN = 40                    # vanhempia kamerakuvia ei tallenneta
@@ -35,8 +36,8 @@ LAT0, LON0 = 60.30, 24.97
 KELI_FI = {0: 'vika', 1: 'kuiva', 2: 'kostea', 3: 'märkä', 4: 'märkä+suola', 5: 'kuura', 6: 'lumi', 7: 'jää', 8: 'kostea+suola', 9: 'sohjo'}
 WINTER_KELI = {5, 6, 7, 9}
 WET_KELI = {2, 3, 4, 8}
-# tallennusosuus kelin mukaan (1 = kaikki): kuivasta joka 6., märästä joka 2., talvisesta kaikki
-KEEP_EVERY = {'kuiva': 6, 'märkä': 2, 'talvi': 1}
+# tallennusosuus kelin mukaan (1 = kaikki): kuivasta joka 4., märästä joka 2., talvisesta kaikki
+KEEP_EVERY = {'kuiva': 4, 'märkä': 2, 'talvi': 1}
 COLS = ['t', 'file', 'kind', 'cam', 'preset', 'dir', 'road', 'img_t', 'station', 'dist_m', 'st_t', 'label_ok',
         'keli', 'keli_fi', 'keli2', 'warn', 'tr', 'ta', 'td', 'fp', 'tf', 'water', 'snow', 'ice', 'fric', 'salt',
         'rain', 'rain_i', 'rain_form', 'vis', 'ws', 'sun', 'mean_L', 'reason', 'v']
@@ -136,7 +137,7 @@ def cameras():
                 continue
             cams.append({'cam': d['id'], 'preset': p['id'], 'name': name, 'dir': p.get('presentationName') or '',
                          'road': ra.get('roadNumber'), 'lon': x, 'lat': y, 'station': sid, 'dist_m': dm,
-                         'kind': 'pari' if dm is not None and dm <= PAIR_MAX else 'vertailu',
+                         'kind': 'pari' if dm is not None and dm <= PAIR_MAX else 'lähi' if dm is not None and dm <= NEAR_MAX else 'vertailu',
                          'url': p.get('imageUrl') or ('https://weathercam.digitraffic.fi/' + p['id'] + '.jpg')})
     save(OUT + '/cams.json', {'t': time.time(), 'v': VERSION, 'cams': cams}, indent=1)
     return cams
@@ -245,7 +246,7 @@ def main():
         reason = 'muutos' if changed else grp
         st['cnt_' + grp] = cnt
         st['last_keli'] = lab.get('keli') if lab else None
-        if not changed and cnt % every != 0:
+        if not changed and (cnt - 1) % every != 0:   # ensimmäinen kuva aina
             skipped['harvennus'] += 1
             continue
         try:
@@ -284,14 +285,17 @@ def main():
         append_csv('%s/labels-%s.csv' % (OUT, month), rows)
     stats.update({'updated': iso(now), 'v': VERSION, 'last_saved': len(rows), 'last_skipped': skipped, 'wintry': wintry,
                   'cams': len({c['cam'] for c in cams}), 'presets': len(cams),
-                  'pairs': sorted({'%s→%s (%s m)' % (c['cam'], c['station'], c['dist_m']) for c in cams if c['kind'] == 'pari'})})
+                  'pairs': sorted({'%s→%s (%s m, %s)' % (c['cam'], c['station'], c['dist_m'], c['kind']) for c in cams if c['kind'] != 'vertailu'})})
     if not stats.get('first'):
         stats['first'] = iso(now)
     save(OUT + '/state.json', state)
     save(OUT + '/index.json', stats, indent=1)
-    print('Tallennettu %d kuvaa (%s), ohitettu %s; yhteensä %d kuvaa, %.1f Mt; pareja %d kuvasuuntaa' % (
+    kinds = {}
+    for c in cams:
+        kinds[c['kind']] = kinds.get(c['kind'], 0) + 1
+    print('Tallennettu %d kuvaa (%s), ohitettu %s; yhteensä %d kuvaa, %.1f Mt; kuvasuunnat %s' % (
         len(rows), ', '.join('%s %d' % (r['preset'], r.get('keli') or 0) for r in rows[:6]) + (' …' if len(rows) > 6 else ''),
-        skipped, stats['n'], stats['bytes'] / 1e6, sum(1 for c in cams if c['kind'] == 'pari')))
+        skipped, stats['n'], stats['bytes'] / 1e6, kinds))
 
 
 if __name__ == '__main__':
