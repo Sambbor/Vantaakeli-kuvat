@@ -20,8 +20,16 @@ jobs:
         run: |
           git config user.name "keli-bot"
           git config user.email "keli-bot@users.noreply.github.com"
-          for d in data img; do [ -e "$d" ] && git add "$d"; done   # img puuttuu, kun kuvia ei vielä ole
-          git diff --cached --quiet && exit 0
-          git commit -m "Kuvapankki $(date -u +%Y-%m-%dT%H:%MZ)"
-          for i in 1 2 3 4; do git pull --rebase --autostash && git push && exit 0; sleep $((i*5)); done
+          # Jos toinen ajo ehti tallentaa ensin (GitHub käynnistää joskus kaksi ajoa), ei yritetä yhdistää samoja
+          # tiedostoja: siirrytään uusimpaan versioon ja ajetaan keruu uudelleen sen päälle.
+          for i in 1 2 3; do
+            for d in data img; do if [ -e "$d" ]; then git add "$d"; fi; done
+            git diff --cached --quiet && exit 0
+            git commit -q -m "Kuvapankki $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push -q && exit 0
+            echo "Säilö muuttui ajon aikana – haetaan uusin versio ja kerätään uudelleen ($i)"
+            sleep $((i*5))
+            git fetch -q origin main && git reset -q --hard origin/main
+            python3 kuvapankki.py || exit 1
+          done
           exit 1
