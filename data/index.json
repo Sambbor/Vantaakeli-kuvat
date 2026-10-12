@@ -31,13 +31,13 @@
   "C0171302": 2,
   "C0171309": 2
  },
- "updated": "2026-10-12T00:51:26Z",
+ "updated": "2026-10-12T01:41:04Z",
  "v": "kp2",
- "last_saved": 20,
+ "last_saved": 0,
  "last_skipped": {
   "vanha": 0,
   "sama": 0,
-  "harvennus": 0,
+  "harvennus": 20,
   "vertailu": 23,
   "virhe": 0
  },
