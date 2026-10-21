@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from PIL import Image
 
-VERSION = 'kp2'
+VERSION = 'kp3'
 DT = 'https://tie.digitraffic.fi'
 HDR = {'Digitraffic-User': 'Vantaa-urakka-kuvapankki', 'User-Agent': 'vantaa-kuvapankki/1', 'Accept-Encoding': 'gzip'}
 BBOX = (24.55, 60.15, 25.45, 60.50)
@@ -27,6 +27,8 @@ JPEG_Q = 78
 STALE_MIN = 40                    # vanhempia kamerakuvia ei tallenneta
 LABEL_MAX_MIN = 25                # aseman mittaus enintään näin kaukana kuvan ajasta, muuten merkintä "label_ok=0"
 COMPARE_EVERY_H = 3               # vertailukameroiden väli
+PREDAWN = (4, 6)                  # kp3 (21.10.2026): klo 4–6 kaikki pari- ja lähikuvat talteen, kun tie on kylmä (≤ +2 °C) –
+                                  # kuuran tarkistus aamukuvista ennen kuin kuura sulaa pientareilta
 SIZE_SOFT_MB = 900                # kun kuvia on tätä enemmän, kuivia kuvia harvennetaan lisää
 TZ = ZoneInfo('Europe/Helsinki')
 M_LAT = 111320.0
@@ -220,6 +222,7 @@ def main():
     labs = {i: station_label(st_vals[i]) for i in own}
     trs = [l['tr'] for l in labs.values() if l['tr'] is not None]
     wintry = (min(trs) <= 3 if trs else False) or any(keli_group(l) != 'kuiva' for l in labs.values())
+    predawn = PREDAWN[0] <= loc.hour < PREDAWN[1] and bool(trs) and min(trs) <= 2
     compare_now = wintry and loc.hour % COMPARE_EVERY_H == 0
     big = stats.get('bytes', 0) > SIZE_SOFT_MB * 1e6
     sun = sun_elev(now)
@@ -242,8 +245,8 @@ def main():
         grp = keli_group(lab) if lab else 'kuiva'
         changed = lab and st.get('last_keli') is not None and lab.get('keli') != st.get('last_keli')
         cnt = st.get('cnt_' + grp, 0) + 1
-        every = 1 if c['kind'] == 'vertailu' else KEEP_EVERY[grp] * (4 if big and grp == 'kuiva' else 1)   # vertailukamerat jo harvaan
-        reason = 'muutos' if changed else grp
+        every = 1 if (c['kind'] == 'vertailu' or predawn) else KEEP_EVERY[grp] * (4 if big and grp == 'kuiva' else 1)   # vertailukamerat jo harvaan
+        reason = 'muutos' if changed else ('aamu' if predawn and grp == 'kuiva' else grp)
         st['cnt_' + grp] = cnt
         st['last_keli'] = lab.get('keli') if lab else None
         if not changed and (cnt - 1) % every != 0:   # ensimmäinen kuva aina
