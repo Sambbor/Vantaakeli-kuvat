@@ -1,59 +1,7 @@
 {
- "t": 1792594617.092006,
+ "t": 1793200467.7440507,
  "v": "kp3",
  "cams": [
-  {
-   "cam": "C01513",
-   "preset": "C0151301",
-   "name": "Tie 101 Helsinki, Pakila",
-   "dir": "Kehä 1 Itään",
-   "road": 101,
-   "lon": 24.948435,
-   "lat": 60.244449,
-   "station": 1034,
-   "dist_m": 2927,
-   "kind": "vertailu",
-   "url": "https://weathercam.digitraffic.fi/C0151301.jpg"
-  },
-  {
-   "cam": "C01513",
-   "preset": "C0151302",
-   "name": "Tie 101 Helsinki, Pakila",
-   "dir": "Kehä I Länteen",
-   "road": 101,
-   "lon": 24.948435,
-   "lat": 60.244449,
-   "station": 1034,
-   "dist_m": 2927,
-   "kind": "vertailu",
-   "url": "https://weathercam.digitraffic.fi/C0151302.jpg"
-  },
-  {
-   "cam": "C01513",
-   "preset": "C0151303",
-   "name": "Tie 101 Helsinki, Pakila",
-   "dir": "Tie 45 Tuusulaan",
-   "road": 101,
-   "lon": 24.948435,
-   "lat": 60.244449,
-   "station": 1034,
-   "dist_m": 2927,
-   "kind": "vertailu",
-   "url": "https://weathercam.digitraffic.fi/C0151303.jpg"
-  },
-  {
-   "cam": "C01513",
-   "preset": "C0151309",
-   "name": "Tie 101 Helsinki, Pakila",
-   "dir": "Tie 45 Tienpinta",
-   "road": 101,
-   "lon": 24.948435,
-   "lat": 60.244449,
-   "station": 1034,
-   "dist_m": 2927,
-   "kind": "vertailu",
-   "url": "https://weathercam.digitraffic.fi/C0151309.jpg"
-  },
   {
    "cam": "C01523",
    "preset": "C0152301",
