@@ -8,6 +8,10 @@ Ajetaan GitHub Actionsissa kerran tunnissa (säilö Sambbor/Vantaakeli-kuvat).
 - Muut urakan kamerat ("vertailu"): kuva 3 tunnin välein, kun talvikeli on mahdollinen (kylmin asema ≤ +3 °C tai
   jollain asemalla muu kuin kuiva keli). Niillä testataan myöhemmin, toimiiko tunnistus ilman asemaa.
 - Kuivan kelin kuvista tallennetaan vain osa, talviset tilanteet ja kelin vaihtumiset aina.
+- kp4 (3.11.2026, Samuli: "kelikuvia tunnin välein tiesääasema datan kanssa, jotta saadaan dataa kuuran muodostumisesta",
+  Vantaa ja Salo): kuurayönä (klo 18–09 Suomen aikaa ja urakan kylmin tienpinta ≤ +2 °C) kaikki urakan kuvasuunnat
+  (myös vertailukamerat) joka tunti ilman harvennusta, merkintään lähimmän aseman mittaukset (reason = kuurayö).
+  Salon urakka (333) mukaan; kuvat samaan kansioon, urakka kameraluettelossa (data/cams.json) ja yhteenvedossa.
 Data: Fintraffic / Digitraffic, CC BY 4.0.
 """
 import gzip, io, json, math, os, time, urllib.request
@@ -15,11 +19,11 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from PIL import Image
 
-VERSION = 'kp3'
+VERSION = 'kp4'
 DT = 'https://tie.digitraffic.fi'
 HDR = {'Digitraffic-User': 'Vantaa-urakka-kuvapankki', 'User-Agent': 'vantaa-kuvapankki/1', 'Accept-Encoding': 'gzip'}
-BBOX = (24.55, 60.15, 25.45, 60.50)
-CONTRACT = 301                    # Vantaan hoitourakka (Digitrafficin contractAreaCode)
+# urakka: (Digitrafficin contractAreaCode, esirajaus)
+URAKAT = {'vantaa': (301, (24.55, 60.15, 25.45, 60.50)), 'salo': (333, (22.75, 60.05, 23.85, 60.62))}
 PAIR_MAX = 300                    # m: kamera ja asema samassa paikassa ("pari")
 NEAR_MAX = 1000                   # m: asema lähellä ("lähi"), merkintä hieman epävarmempi; tallennetaan kuten parit
 IMG_W = 400                       # tallennettavan kuvan leveys (px)
@@ -29,6 +33,8 @@ LABEL_MAX_MIN = 25                # aseman mittaus enintään näin kaukana kuva
 COMPARE_EVERY_H = 3               # vertailukameroiden väli
 PREDAWN = (4, 6)                  # kp3 (21.10.2026): klo 4–6 kaikki pari- ja lähikuvat talteen, kun tie on kylmä (≤ +2 °C) –
                                   # kuuran tarkistus aamukuvista ennen kuin kuura sulaa pientareilta
+FROST_NIGHT = (18, 9)             # kp4: kuurayö klo 18–09 Suomen aikaa, kun urakan kylmin tienpinta ≤ FROST_TR
+FROST_TR = 2.0
 SIZE_SOFT_MB = 900                # kun kuvia on tätä enemmän, kuivia kuvia harvennetaan lisää
 TZ = ZoneInfo('Europe/Helsinki')
 M_LAT = 111320.0
@@ -118,7 +124,7 @@ def cameras():
     cams = []
     for f in get(DT + '/api/weathercam/v1/stations')['features']:
         x, y = f['geometry']['coordinates'][:2]
-        if not (BBOX[0] <= x <= BBOX[2] and BBOX[1] <= y <= BBOX[3]) or f['properties'].get('collectionStatus') != 'GATHERING':
+        if not any(b[0] <= x <= b[2] and b[1] <= y <= b[3] for _, b in URAKAT.values()) or f['properties'].get('collectionStatus') != 'GATHERING':
             continue
         try:
             d = get(DT + '/api/weathercam/v1/stations/' + f['id'])
@@ -126,7 +132,8 @@ def cameras():
             continue
         p0 = d['properties']
         ra = p0.get('roadAddress') or {}
-        if ra.get('contractAreaCode') != CONTRACT:
+        urakka = next((u for u, (code, _) in URAKAT.items() if ra.get('contractAreaCode') == code), None)
+        if urakka is None:
             continue
         # lähin asema: Digitrafficin oma tieto, tarkistetaan etäisyys; jos sitä ei ole, haetaan lähin itse
         sid = p0.get('nearestWeatherStationId')
@@ -137,7 +144,7 @@ def cameras():
         for p in p0.get('presets', []):
             if not p.get('inCollection', True):
                 continue
-            cams.append({'cam': d['id'], 'preset': p['id'], 'name': name, 'dir': p.get('presentationName') or '',
+            cams.append({'cam': d['id'], 'preset': p['id'], 'urakka': urakka, 'name': name, 'dir': p.get('presentationName') or '',
                          'road': ra.get('roadNumber'), 'lon': x, 'lat': y, 'station': sid, 'dist_m': dm,
                          'kind': 'pari' if dm is not None and dm <= PAIR_MAX else 'lähi' if dm is not None and dm <= NEAR_MAX else 'vertailu',
                          'url': p.get('imageUrl') or ('https://weathercam.digitraffic.fi/' + p['id'] + '.jpg')})
@@ -223,6 +230,12 @@ def main():
     trs = [l['tr'] for l in labs.values() if l['tr'] is not None]
     wintry = (min(trs) <= 3 if trs else False) or any(keli_group(l) != 'kuiva' for l in labs.values())
     predawn = PREDAWN[0] <= loc.hour < PREDAWN[1] and bool(trs) and min(trs) <= 2
+    # kp4: kuurayö urakoittain (kylmin oma tienpinta)
+    night = loc.hour >= FROST_NIGHT[0] or loc.hour < FROST_NIGHT[1]
+    frost = {}
+    for u in URAKAT:
+        tu = [labs[c['station']]['tr'] for c in cams if c.get('urakka', 'vantaa') == u and c.get('station') in labs and labs[c['station']]['tr'] is not None]
+        frost[u] = night and bool(tu) and min(tu) <= FROST_TR
     compare_now = wintry and loc.hour % COMPARE_EVERY_H == 0
     big = stats.get('bytes', 0) > SIZE_SOFT_MB * 1e6
     sun = sun_elev(now)
@@ -231,7 +244,8 @@ def main():
     for c in cams:
         pid = c['preset']
         st = state.setdefault(pid, {})
-        if c['kind'] == 'vertailu' and not compare_now:
+        fn = frost.get(c.get('urakka', 'vantaa'), False)
+        if c['kind'] == 'vertailu' and not compare_now and not fn:
             skipped['vertailu'] += 1
             continue
         mt = parse_t(cam_t.get(pid))
@@ -245,8 +259,8 @@ def main():
         grp = keli_group(lab) if lab else 'kuiva'
         changed = lab and st.get('last_keli') is not None and lab.get('keli') != st.get('last_keli')
         cnt = st.get('cnt_' + grp, 0) + 1
-        every = 1 if (c['kind'] == 'vertailu' or predawn) else KEEP_EVERY[grp] * (4 if big and grp == 'kuiva' else 1)   # vertailukamerat jo harvaan
-        reason = 'muutos' if changed else ('aamu' if predawn and grp == 'kuiva' else grp)
+        every = 1 if (c['kind'] == 'vertailu' or predawn or fn) else KEEP_EVERY[grp] * (4 if big and grp == 'kuiva' else 1)   # vertailukamerat jo harvaan
+        reason = 'muutos' if changed else ('kuurayö' if fn and grp == 'kuiva' else 'aamu' if predawn and grp == 'kuiva' else grp)
         st['cnt_' + grp] = cnt
         st['last_keli'] = lab.get('keli') if lab else None
         if not changed and (cnt - 1) % every != 0:   # ensimmäinen kuva aina
@@ -284,9 +298,10 @@ def main():
         stats['by_keli'][k] = stats['by_keli'].get(k, 0) + 1
         stats['by_kind'][c['kind']] = stats['by_kind'].get(c['kind'], 0) + 1
         stats['by_preset'][pid] = stats['by_preset'].get(pid, 0) + 1
+        u = c.get('urakka', 'vantaa'); stats.setdefault('by_urakka', {})[u] = stats.get('by_urakka', {}).get(u, 0) + 1
     if rows:
         append_csv('%s/labels-%s.csv' % (OUT, month), rows)
-    stats.update({'updated': iso(now), 'v': VERSION, 'last_saved': len(rows), 'last_skipped': skipped, 'wintry': wintry,
+    stats.update({'updated': iso(now), 'v': VERSION, 'last_saved': len(rows), 'last_skipped': skipped, 'wintry': wintry, 'frost_night': frost,
                   'cams': len({c['cam'] for c in cams}), 'presets': len(cams),
                   'pairs': sorted({'%s→%s (%s m, %s)' % (c['cam'], c['station'], c['dist_m'], c['kind']) for c in cams if c['kind'] != 'vertailu'})})
     if not stats.get('first'):
@@ -296,8 +311,8 @@ def main():
     kinds = {}
     for c in cams:
         kinds[c['kind']] = kinds.get(c['kind'], 0) + 1
-    print('Tallennettu %d kuvaa (%s), ohitettu %s; yhteensä %d kuvaa, %.1f Mt; kuvasuunnat %s' % (
-        len(rows), ', '.join('%s %d' % (r['preset'], r.get('keli') or 0) for r in rows[:6]) + (' …' if len(rows) > 6 else ''),
+    print('Kuurayö %s. Tallennettu %d kuvaa (%s), ohitettu %s; yhteensä %d kuvaa, %.1f Mt; kuvasuunnat %s' % (
+        frost, len(rows), ', '.join('%s %d' % (r['preset'], r.get('keli') or 0) for r in rows[:6]) + (' …' if len(rows) > 6 else ''),
         skipped, stats['n'], stats['bytes'] / 1e6, kinds))
 
 
