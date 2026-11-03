@@ -1,13 +1,36 @@
 name: Kuvapankki
 on:
   schedule:
-    - cron: '23 * * * *'      # kerran tunnissa ympäri vuorokauden
+    - cron: '23 * * * *'      # varalla; varsinainen tahti Kuvapankin ajastimesta (ajastin.yml), ks. vahti-työ
   workflow_dispatch:          # käsin käynnistys (testaus)
 permissions:
   contents: write
 concurrency: kuvapankki
 jobs:
+  # ka1 (3.11.2026): ajastettu (schedule) ajo on varalla – se ohitetaan, jos ajastimen käynnistämä ajo on alkanut alle 50 min sitten,
+  # jotta samalta tunnilta ei tallennu kuvia kahdesti.
+  vahti:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+    outputs:
+      aja: ${{ steps.v.outputs.aja }}
+    steps:
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          aja=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            n=$(gh run list --workflow kuvapankki.yml --event workflow_dispatch --limit 5 --json createdAt --jq '[.[] | select(now - (.createdAt | fromdateiso8601) < 3000)] | length' || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then aja=false; echo "Ajastin hoitaa kuvapankin – ajastettu varakeruu ohitetaan"; fi
+          fi
+          echo "aja=$aja" >> "$GITHUB_OUTPUT"
   collect:
+    needs: vahti
+    if: needs.vahti.outputs.aja == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

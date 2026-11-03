@@ -1,0 +1,40 @@
+name: Kuvapankin ajastin
+# ka1 (3.11.2026, Samuli): GitHubin ajastetut ajot jäävät osin tulematta – kuvapankki (kerran tunnissa) ajettiin 1.–3.11.
+# vain 4–9 tunnin välein. Tämä ajo käynnistää kuvapankin (kuvapankki.yml) tasan :23 UTC noin 5 h 40 min ajan ja
+# käynnistää lopuksi itsensä uudelleen (sama malli kuin Vantaakelin ja Tiesää-arkiston ajastimissa).
+# Varalla cron: jos ketju katkeaa, ajastin käynnistyy uudelleen viimeistään 3 h kuluttua (jonoon jäävä varakäynnistys peruuntuu –
+# "cancelled" Actionsissa on normaalia). Käsin peruttu ajastin ei käynnisty itse uudelleen. Julkisessa säilössä ajominuutit ovat ilmaisia.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '8 */3 * * *'
+permissions:
+  actions: write
+concurrency: ajastin
+jobs:
+  ajastin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Käynnistä kuvapankki kerran tunnissa (:23 UTC)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          loppu=$(( $(date +%s) + 340*60 ))
+          while :; do
+            nyt=$(date +%s)
+            seuraava=$(( nyt - (nyt - 1380) % 3600 + 3600 ))   # 1380 s = 23 min; jakso 60 min
+            [ "$seuraava" -gt "$loppu" ] && break
+            sleep $(( seuraava - nyt ))
+            echo "$(date -u +%H:%M:%S) käynnistetään kuvapankki"
+            gh workflow run kuvapankki.yml --ref main || echo "::warning::Kuvapankin käynnistys epäonnistui"
+          done
+      - name: Käynnistä ajastin uudelleen
+        if: success() || failure()   # ei peruttaessa: käsin peruttu ketju pysähtyy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for i in 1 2 3; do gh workflow run ajastin.yml --ref main && exit 0; sleep 20; done
+          exit 1
