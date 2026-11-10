@@ -85,13 +85,13 @@
   "C0257202": 110,
   "C0257209": 110
  },
- "updated": "2026-11-10T08:23:22Z",
+ "updated": "2026-11-10T09:23:26Z",
  "v": "kp4",
- "last_saved": 6,
+ "last_saved": 0,
  "last_skipped": {
-  "vanha": 0,
+  "vanha": 30,
   "sama": 0,
-  "harvennus": 24,
+  "harvennus": 0,
   "vertailu": 38,
   "virhe": 0
  },
