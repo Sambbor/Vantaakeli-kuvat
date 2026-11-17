@@ -1,5 +1,5 @@
 {
- "t": 1794349440.4410782,
+ "t": 1794957828.077244,
  "v": "kp4",
  "cams": [
   {
@@ -449,20 +449,6 @@
    "dist_m": 2434,
    "kind": "vertailu",
    "url": "https://weathercam.digitraffic.fi/C0165000.jpg"
-  },
-  {
-   "cam": "C01651",
-   "preset": "C0165100",
-   "urakka": "vantaa",
-   "name": "Tie 7 Sipoo, Sipoonlahti",
-   "dir": "Tie 7",
-   "road": 7,
-   "lon": 25.325135,
-   "lat": 60.28135,
-   "station": 1011,
-   "dist_m": 0,
-   "kind": "pari",
-   "url": "https://weathercam.digitraffic.fi/C0165100.jpg"
   },
   {
    "cam": "C01655",
