@@ -1,5 +1,5 @@
 {
- "t": 1794957828.077244,
+ "t": 1795566282.9355989,
  "v": "kp4",
  "cams": [
   {
@@ -449,20 +449,6 @@
    "dist_m": 2434,
    "kind": "vertailu",
    "url": "https://weathercam.digitraffic.fi/C0165000.jpg"
-  },
-  {
-   "cam": "C01655",
-   "preset": "C0165500",
-   "urakka": "vantaa",
-   "name": "Tie 3 Vantaa, Keimola",
-   "dir": "Tie 3",
-   "road": 3,
-   "lon": 24.821251,
-   "lat": 60.331489,
-   "station": 1041,
-   "dist_m": 625,
-   "kind": "lähi",
-   "url": "https://weathercam.digitraffic.fi/C0165500.jpg"
   },
   {
    "cam": "C01656",
